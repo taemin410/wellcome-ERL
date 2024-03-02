@@ -1,8 +1,8 @@
+import random
 from dotenv import load_dotenv
 load_dotenv()
 
 import os
-from langchain import verbose
 import json
 import streamlit as st
 import pandas as pd
@@ -36,12 +36,14 @@ page_titles = [
     "취업 기업 정보 입력",
     "개인정보 입력",
     "초안 검토 및 수정",
-    "추가 연계 서비스 선택"
+    "최종 중보 제거 및 정리",
+    "추가 서비스 제안 및 결제"
 ]
 
 required_fields = {
     1: ["company_name", "registration_number"],
-    2: ["full_name", "age", "gender", "phone_number", "nationality", "passport_number", "passport_issue_date", "passport_expiry_date", "kor_address", "foreign_address", "email", "education", "career", "language_score", "certificate"],
+    # 2: ["full_name", "age", "gender", "phone_number", "nationality", "passport_number", "passport_issue_date", "passport_expiry_date", "kor_address", "foreign_address", "email", "education", "career", "language_score", "certificate"],
+    2: ["full_name", "age", "gender", "nationality", "education", "career", "language_score", "certificate", "self_introduction"],
 }
 
 def load_file_content(file_path):
@@ -49,7 +51,10 @@ def load_file_content(file_path):
         return file.read()
 
 def merge_contents(text1, text2, text3):
-    return f"[Company Information]\n{text1}\n\n[Foreigner Information]\n{text2}\n\n[Requested term]\n{text3}"
+    return f"[Company Information]\n{text1}\n\n[Foreigner Information]\n{text2}\n\n[Requested term]\n{text3}\n\n"
+
+def corrections_text(merged_text, result_text, corrections):
+    return f"{merged_text}\n\n[result_text]\n{result_text}\n\n[corrections]\n{corrections}"
 
 # 국가 목록을 불러오는 함수
 def get_country_list():
@@ -79,77 +84,79 @@ def check_required_fields(page):
     return True
 
 
-def text_input_with_required(label, key):
-    # 필수 항목 표시를 위한 HTML 생성
+def input_with_required(label, key, widget_type, options=None, placeholder=None, height=None):
+    # 필수 입력을 확인하는 로직
     required = "*" if key in required_fields.get(st.session_state.current_page, []) else ""
     required_html = f"<span style='color: red;'>{required}</span>"
-    st.markdown(f"<label for='input_{key}' style='line-height: 1.5;'>{label} {required_html}</label>", unsafe_allow_html=True)
-    value = st.text_input(label, key=key, placeholder=label, label_visibility="collapsed")
+    
+    # 공통 레이블 생성
+    label_html = f"<label for='input_{key}' style='line-height: 1.5;'>{label} {required_html}</label>"
+    st.markdown(label_html, unsafe_allow_html=True)
+    
+    # 위젯 유형에 따라 다른 입력 메서드 호출
+    if widget_type == 'text_input':
+        value = st.text_input(label, key=key, placeholder=placeholder if placeholder else label, label_visibility="collapsed")
+    elif widget_type == 'radio':
+        value = st.radio(label, options=options, key=key, label_visibility="collapsed")
+    elif widget_type == 'selectbox':
+        value = st.selectbox(label, options=options, key=key, label_visibility="collapsed")
+    elif widget_type == 'text_area':
+        value = st.text_area(label, key=key, placeholder=placeholder if placeholder else label, height=height, label_visibility="collapsed")
+    else:
+        raise ValueError("Unsupported widget type")
+    
     st.empty()
     return value
 
-def radio_with_required(label, key, options):
-    required = "*" if key in required_fields.get(st.session_state.current_page, []) else ""
-    required_html = f"<span style='color: red;'>{required}</span>"
-    st.markdown(f"<label for='input_{key}'>{label} {required_html}</label>", unsafe_allow_html=True)
-    # 라벨 값을 ' '에서 실제 라벨 값으로 변경하고, label_visibility="collapsed" 추가
-    return st.radio(label, options=options, key=key, label_visibility="collapsed")
-
-
-def selectbox_with_required(label, key, options):
-    required = "*" if key in required_fields.get(st.session_state.current_page, []) else ""
-    required_html = f"<span style='color: red;'>{required}</span>"
-    st.markdown(f"<label for='input_{key}'>{label} {required_html}</label>", unsafe_allow_html=True)
-    return st.selectbox(label, options=options, key=key, label_visibility="collapsed")
-
-def text_area_with_required(label, key, placeholder=None, height=None):
-    # Determine if the field is required based on the current page and required fields
-    required = "*" if key in required_fields.get(st.session_state.current_page, []) else ""
-    required_html = f"<span style='color: red;'>{required}</span>"
-    # Display the label with the required indicator
-    st.markdown(f"<label for='textarea_{key}' style='line-height: 1.5;'>{label} {required_html}</label>", unsafe_allow_html=True)
-    # Create the text area widget
-    value = st.text_area(label, key=key, placeholder=placeholder if placeholder else label, height=height, label_visibility="collapsed")
-    st.empty()  # You might not need this empty space unless you have a specific layout in mind
-    return value
 
 def process_response(response):
-    # Directly access the content attribute of the AIMessage object
-    # This is based on the assumption that the response object has a 'content' attribute.
-    # If the actual attribute/method name differs, you will need to adjust this accordingly.
     content = response.content if hasattr(response, 'content') else ""
-
-    # Assuming 'content' contains the string you're interested in,
-    # you can further process it as needed
     clean_content = content.replace("content='", "").rstrip("'")
     return clean_content
 
-# def get_enhanced_response(initial_prompt, initial_response):
-#     # 사용자로부터의 추가 입력을 받기 위한 text_area 생성
-#     user_input = st.text_area("추가 정보를 입력하세요 (만족할 때까지 반복됩니다):", key="user_input")
+# def regenerate_response(prompt):
+#     response = llm.invoke(prompt)
+#     clean_response = process_response(response)
+#     st.write(clean_response)
+#     corrections = st.text_area("초안을 수정하거나 추가로 입력할 내용을 입력하세요.")
+#     st.write(corrections)
+#     if st.button("수정 요청"):        
+#         corrections_prompt = corrections_text(prompt, clean_response, corrections)
+#         return regenerate_response(corrections_prompt)
+    
+#     if st.button("수정 완료"):
+#         return clean_response
 
-#     # 새로운 프롬프트 생성
-#     # 여기서는 예시로, 초기 프롬프트, 초기 응답, 그리고 사용자의 추가 입력을 결합
-#     new_prompt = f"{initial_prompt}\n\nInitial Response: {initial_response}\n\nAdditional User Input: {user_input}"
-    
-#     # 새로운 프롬프트를 사용하여 OpenAI 모델에 요청
-#     # 여기서는 예시로 process_response 함수를 다시 호출
-#     new_response = process_response(llm.invoke(new_prompt))
-    
-#     return new_response
+def regenerate_response(prompt, attempt=0):
+    response = llm.invoke(prompt)
+    clean_response = process_response(response)
+    st.write(clean_response)
 
-def handle_revision(page_num, user_input_key, response_key, initial_prompt_key):
-    user_input = st.session_state[user_input_key]
-    initial_prompt = st.session_state[initial_prompt_key]
-    initial_response = st.session_state[response_key]
+    # 고유한 키를 생성하기 위해 `attempt`를 사용합니다.
+    corrections_key = f"corrections_{attempt}"
+    corrections = st.text_area("초안을 수정하거나 추가로 입력할 내용을 입력하세요.", key=corrections_key)
+    st.write(corrections)
+
+    if st.button("수정 요청", key=f"request_modification_{attempt}"):
+        corrections_prompt = corrections_text(prompt, clean_response, corrections)
+        # 재귀 호출 시 `attempt` 값을 증가시켜 고유한 키를 유지합니다.
+        return regenerate_response(corrections_prompt, attempt + 1)
     
-    # 새로운 프롬프트 생성
-    new_prompt = f"{initial_prompt}\n\nInitial Response: {initial_response}\n\nUser Input: {user_input}"
-    # 새로운 응답 가져오기 (여기서는 예시로 초기 응답을 사용합니다. 실제로는 OpenAI API를 호출해야 합니다.)
-    new_response = process_response(new_prompt)  # 이 함수는 적절한 OpenAI 호출로 대체해야 합니다.
-    
-    # 새로운 응답 저장
-    st.session_state[response_key] = new_response
+    if st.button("수정 완료", key=f"modification_complete_{attempt}"):
+        return clean_response
+
+def update_value(key, value):
+    st.session_state[key] = value
+
+def handle_modification_request(initial_response_key, prompt_key, corrections_key, unique_key):
+    if st.button("수정요청", key=unique_key):
+        prompt = st.session_state[prompt_key]
+        corrections = st.session_state[corrections_key]
+        corrections_prompt = corrections_text(prompt, st.session_state[initial_response_key], corrections)
+        modified_response = process_response(llm.invoke(corrections_prompt))
+        st.session_state[initial_response_key] = modified_response
+        # st.experimental_rerun()
+        st.rerun()
 
 
 # 페이지 함수
@@ -157,7 +164,6 @@ def show_page(page):
     get_country_list()
     if page == 0:
         # 취업 확인 페이지
-        # st.session_state.employment_status = st.radio("현재 취업 상태를 선택하세요.", ('취업', '미취업'))
         col1, col2 = st.columns(2)
         with col1:
             st.link_button("아직 일자리를 찾고 있어요", hr_site_url)
@@ -166,10 +172,8 @@ def show_page(page):
 
     elif page == 1:
         # 취업 기업 정보 입력 페이지
-        text_input_with_required("기업 이름", "company_name")
-        text_input_with_required("사업자등록번호", "registration_number")
-        # st.session_state.company_name = st.text_input("기업 이름")
-        # st.session_state.registration_number = st.text_input("사업자등록번호")
+        input_with_required("기업 이름", "company_name", "text_input")
+        input_with_required("사업자등록번호", "registration_number", "text_input")
         st.session_state.register_certificate = st.file_uploader("사업자등기부등본", type="pdf")
         if test_mode:
             st.session_state.company_location = st.text_input("기업 위치")
@@ -182,53 +186,67 @@ def show_page(page):
 
         
     elif page == 2:
+        check_fields_1 = True
         # 개인정보 입력 페이지
         col1, col2 = st.columns([1, 1])
         with col1:
-            text_input_with_required("이름", "full_name")
+            input_with_required("이름", "full_name", "text_input")
         with col2:
-            text_input_with_required("나이", "age")
+            input_with_required("나이", "age", "text_input")
+
         col1, col2 = st.columns([1, 1])
         with col1:
-            radio_with_required("성별", "gender", ['남성', '여성'])
+            input_with_required("성별", "gender", "radio", ['남성', '여성'])
         with col2:
-            text_input_with_required("전화번호", "phone_number")
+            input_with_required("전화번호", "phone_number", "text_input")
 
         col1, col2 = st.columns([1, 1])
         with col1:
             country_list = st.session_state.country_list
-            selectbox_with_required('국적을 선택하세요', 'nationality', country_list)
-        with col2:
-            text_input_with_required("여권번호", "passport_number")
+            input_with_required('국적을 선택하세요', 'nationality', "selectbox", country_list)
+        if test_mode:
+            with col2:
+                st.write("테스트모드에서는 여권번호, 여권 발급일, 여권 만료일을 입력하지 않습니다. 실제 서비스에서는 필수 입력사항입니다.")
+        else:
+            with col2:
+                input_with_required("여권번호", "passport_number", "text_input")
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                st.session_state.passport_issue_date = st.date_input(
+                    "여권 발급일",
+                    min_value=years_ago.date(),
+                    max_value=years_later.date(),
+                    value=datetime.now().date()  # 기본값을 오늘 날짜로 설정
+                )
+            with col2:
+                st.session_state.passport_expiry_date = st.date_input(
+                    "여권 만료일",
+                    min_value=years_ago.date(),
+                    max_value=years_later.date(),
+                    value=datetime.now().date()  # 기본값을 오늘 날짜로 설정
+                )
+            input_with_required("국내 주소지", "kor_address", "text_input")
+            input_with_required("본국 주소지", "foreign_address", "text_input")
+            input_with_required("이메일 주소", "email", "text_input")
 
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            st.session_state.passport_issue_date = st.date_input(
-                "여권 발급일",
-                min_value=years_ago.date(),
-                max_value=years_later.date(),
-                value=datetime.now().date()  # 기본값을 오늘 날짜로 설정
-            )
-        with col2:
-            st.session_state.passport_expiry_date = st.date_input(
-                "여권 만료일",
-                min_value=years_ago.date(),
-                max_value=years_later.date(),
-                value=datetime.now().date()  # 기본값을 오늘 날짜로 설정
-            )
-        text_input_with_required("국내 주소지", "kor_address")
-        text_input_with_required("본국 주소지", "foreign_address")
-        text_input_with_required("이메일 주소", "email")
-
-        text_area_with_required("학력사항", "education","학교명/학위/전공/졸업상태,\n학교명/학위/전공/졸업상태,")
-        text_area_with_required("경력사항", "career","회사명/직무/근무기간,\n회사명/직무/근무기간,")
-        text_area_with_required("언어점수", "language_score","자격이름/점수 및 등급/취득일/만료일,\n자격이름/점수 및 등급/취득일/만료일,")
-        text_area_with_required("자격증", "certificate","자격이름/점수 및 등급/취득일/만료일,\n자격이름/점수 및 등급/취득일/만료일,")
-        text_area_with_required("자기소개서", "self_introduction","자기소개서 내용을 입력하세요.")
+        input_with_required("학력사항", "education", "text_area", "", "학교명/학위/전공/졸업상태,\n학교명/학위/전공/졸업상태,")
+        input_with_required("경력사항", "career", "text_area", "","회사명/직무/근무기간,\n회사명/직무/근무기간,")
+        input_with_required("언어점수", "language_score", "text_area", "","자격이름/점수 및 등급/취득일/만료일,\n자격이름/점수 및 등급/취득일/만료일,")
+        input_with_required("자격증", "certificate", "text_area", "","자격이름/점수 및 등급/취득일/만료일,\n자격이름/점수 및 등급/취득일/만료일,")
+        input_with_required("자기소개서", "self_introduction", "text_area", "","자기소개서 내용을 입력하세요.")
         
 
     elif page == 3:
-        # 개인 정보를 텍스트로 모음
+        # 기업 정보 정리
+        company_info_text = f"""
+            기업 이름: {st.session_state.get('company_name', '')},
+            연매출: {st.session_state.get('annual_revenue', '')},
+            재직인원: {st.session_state.get('number_of_employees', '')},
+            사업 형태: {st.session_state.get('business_type', '')},
+            사업 소개: {st.session_state.get('business_introduction', '')}
+        """
+
+        # 개인 정보 정리
         personal_info_text = f"""
             이름: {st.session_state.get('full_name', '')},
             나이: {st.session_state.get('age', '')},
@@ -240,60 +258,101 @@ def show_page(page):
             자기소개서: {st.session_state.get('self_introduction', '')}
         """
 
-        # 기업 정보를 텍스트로 모음
-        company_info_text = f"""
-            기업 이름: {st.session_state.get('company_name', '')},
-            연매출: {st.session_state.get('annual_revenue', '')},
-            재직인원: {st.session_state.get('number_of_employees', '')},
-            사업 형태: {st.session_state.get('business_type', '')},
-            사업 소개: {st.session_state.get('business_introduction', '')}
-        """
-
-        # 텍스트 출력
-        # st.text("개인 정보:")
-        # st.text(personal_info_text)
-
-        # st.text("기업 정보:")
-        # st.text(company_info_text)
-
+        # 텍스트(프롬프트) 파일 열기
         company_introduction_prompt_path = os.path.join('prompt', 'Company-Introduction.txt')
         expertise_workers_path = os.path.join('prompt', 'Expertise-Of-The-Foreign-Workers.txt')
         reasons_cannot_Korean_path = os.path.join('prompt', 'Reasons-Cannot-Replace-With-Korean-Workers.txt')
         reaseos_foreign_path = os.path.join('prompt', 'Reasons-For-Needing-Foreign-Workers.txt')
         
+        # 텍스트(프롬프트) 파일 내용 불러오기
         company_introduction_prompt_text = load_file_content(company_introduction_prompt_path)
         expertise_workers_text = load_file_content(expertise_workers_path)
         reasons_cannot_Korean_text = load_file_content(reasons_cannot_Korean_path)
         reaseos_foreign_text = load_file_content(reaseos_foreign_path)
 
-        prompt1 = merge_contents(company_info_text, personal_info_text, company_introduction_prompt_text)
-        prompt2 = merge_contents(company_info_text, personal_info_text, expertise_workers_text)
-        prompt3 = merge_contents(company_info_text, personal_info_text, reasons_cannot_Korean_text) 
-        prompt4 = merge_contents(company_info_text, personal_info_text, reaseos_foreign_text)
+        # 텍스트(프롬프트) 파일 내용을 합치기
+        st.session_state.prompt1 = merge_contents(company_info_text, personal_info_text, company_introduction_prompt_text)
+        st.session_state.prompt2 = merge_contents(company_info_text, personal_info_text, expertise_workers_text)
+        st.session_state.prompt3 = merge_contents(company_info_text, personal_info_text, reasons_cannot_Korean_text)
+        st.session_state.prompt4 = merge_contents(company_info_text, personal_info_text, reaseos_foreign_text)
 
-        with get_openai_callback() as cb:
-            initial_response1 = llm.invoke(prompt1)
-            initial_response2 = llm.invoke(prompt2)
-            initial_response3 = llm.invoke(prompt3)
-            initial_response4 = llm.invoke(prompt4)
 
-            clean_response1 = process_response(initial_response1)
-            clean_response2 = process_response(initial_response2)
-            clean_response3 = process_response(initial_response3)
-            clean_response4 = process_response(initial_response4)
+        # 초기 응답을 생성하고 저장
+        if 'initial_response_1' not in st.session_state:
+            st.session_state.initial_response_1 = process_response(llm.invoke(st.session_state.prompt1))
+        if 'initial_response_2' not in st.session_state:
+            st.session_state.initial_response_2 = process_response(llm.invoke(st.session_state.prompt2))
+        if 'initial_response_3' not in st.session_state:
+            st.session_state.initial_response_3 = process_response(llm.invoke(st.session_state.prompt3))
+        if 'initial_response_4' not in st.session_state:
+            st.session_state.initial_response_4 = process_response(llm.invoke(st.session_state.prompt4))
 
-            # 추출한 정보 출력
-            st.write(clean_response1)
-            st.write(clean_response2)
-            st.write(clean_response3)
-            st.write(clean_response4)
-        
+        if 'corrent_1' not in st.session_state:
+            st.session_state.corrent_1 = "초기 텍스트 또는 특정 조건에 따른 수정"
+        if 'corrent_2' not in st.session_state:
+            st.session_state.corrent_2 = "초기 텍스트 또는 특정 조건에 따른 수정"
+        if 'corrent_3' not in st.session_state:
+            st.session_state.corrent_3 = "초기 텍스트 또는 특정 조건에 따른 수정"
+        if 'corrent_4' not in st.session_state:
+            st.session_state.corrent_4 = "초기 텍스트 또는 특정 조건에 따른 수정"
 
-        # st.write("추가로 이용할 수 있는 서비스를 선택하세요.")
+        # 수정 요청 처리
+        st.write(st.session_state.initial_response_1)
+        st.text_area("초안을 수정하거나 추가로 입력할 내용을 입력하세요.", key="corrections_1")
+        handle_modification_request("initial_response_1", "prompt1", "corrections_1", "unique_key_1")
+        st.write(st.session_state.initial_response_2)
+        st.text_area("초안을 수정하거나 추가로 입력할 내용을 입력하세요.", key="corrections_2")
+        handle_modification_request("initial_response_2", "prompt2", "corrections_2", "unique_key_2")
+        st.write(st.session_state.initial_response_3)
+        st.text_area("초안을 수정하거나 추가로 입력할 내용을 입력하세요.", key="corrections_3")
+        handle_modification_request("initial_response_3", "prompt3", "corrections_3", "unique_key_3")
+        st.write(st.session_state.initial_response_4)
+        st.text_area("초안을 수정하거나 추가로 입력할 내용을 입력하세요.", key="corrections_4")
+        handle_modification_request("initial_response_4", "prompt4", "corrections_4", "unique_key_4")
 
     elif page == 4:
-        # 추가 연계 서비스 선택 페이지
-        st.write("추가로 이용할 수 있는 서비스를 선택하세요.")
+        final_review_order = os.path.join('prompt', 'Content-Final-Review-Order.txt')
+        st.session_state.order_text = load_file_content(final_review_order)
+
+        st.subheader("결과 리뷰")
+        # st.session_state.total_response = f"""
+        #     **1.기업소개\n {st.session_state.initial_response_1}\n\n
+        #     2.외국인력 도입 업무와 관련한 전문인력부족 현황\n{st.session_state.initial_response_2}\n\n
+        #     3.국내인력 채용노력 및 인력을 충원하지 못한 사유\n{st.session_state.initial_response_3}\n\n
+        #     4.전문외국인력의 기술과 담당할 업무의 연관성\n{st.session_state.initial_response_4}\n\n
+        #     """
+        st.session_state.total_response = """
+            **1. 기업 소개**\n
+            {introduction}
+            
+            **2. 외국인력 도입 업무와 관련한 전문 인력 부족 현황**\n
+            {expertise_shortage}
+            
+            **3. 국내 인력 채용 노력 및 인력을 충원하지 못한 사유**\n
+            {recruitment_efforts}
+            
+            **4. 전문 외국인력의 기술과 담당할 업무의 연관성**\n
+            {expertise_relevance}
+            """.format(
+                introduction=st.session_state.initial_response_1,
+                expertise_shortage=st.session_state.initial_response_2,
+                recruitment_efforts=st.session_state.initial_response_3,
+                expertise_relevance=st.session_state.initial_response_4,
+            )
+        st.write(st.session_state.total_response)
+        st.text_area("최종본 수정 사항", key="corrections_last")
+        handle_modification_request("total_response", "order_text", "corrections_last", "unique_key_5")
+
+        
+
+
+
+    elif page == 5:
+        st.subheader("추가 서비스 제안 및 결제")
+        st.write("추가 서비스 제안 및 결제 페이지입니다.")
+        if st.button("결제 완료"):
+            st.write("결제가 완료되었습니다.")
+            st.session_state.current_page += 1
 
 # 페이지 이동 함수
 def next_page():
@@ -310,6 +369,7 @@ def previous_page():
 
 # 현재 페이지 표시
 llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.5)
+
 st.title(page_titles[st.session_state.current_page])
 show_page(st.session_state.current_page)
 
@@ -324,7 +384,6 @@ if 'check_fields' in st.session_state and st.session_state.check_fields:
 
 col1, col2, col3 = st.columns([0.1, 0.8, 0.1])
 with col1:
-# 페이지 이동 버튼
     if st.session_state.current_page > 0:
         st.button("이전", on_click=previous_page)
 with col3:
