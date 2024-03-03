@@ -1,4 +1,3 @@
-import random
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -41,7 +40,8 @@ page_titles = [
 ]
 
 required_fields = {
-    1: ["company_name", "registration_number"],
+    # 1: ["company_name", "registration_number"],
+    1: ["company_name"],
     # 2: ["full_name", "age", "gender", "phone_number", "nationality", "passport_number", "passport_issue_date", "passport_expiry_date", "kor_address", "foreign_address", "email", "education", "career", "language_score", "certificate"],
     2: ["full_name", "age", "gender", "nationality", "education", "career", "language_score", "certificate", "self_introduction"],
 }
@@ -51,7 +51,7 @@ def load_file_content(file_path):
         return file.read()
 
 def merge_contents(text1, text2, text3):
-    return f"[Company Information]\n{text1}\n\n[Foreigner Information]\n{text2}\n\n[Requested term]\n{text3}\n\n"
+    return f"[company information]\n{text1}\n\n[foreigner information]\n{text2}\n\n[requested term]\n{text3}\n"
 
 def corrections_text(merged_text, result_text, corrections):
     return f"{merged_text}\n\n[result_text]\n{result_text}\n\n[corrections]\n{corrections}"
@@ -173,12 +173,12 @@ def show_page(page):
     elif page == 1:
         # 취업 기업 정보 입력 페이지
         input_with_required("기업 이름", "company_name", "text_input")
-        input_with_required("사업자등록번호", "registration_number", "text_input")
+        # input_with_required("사업자등록번호", "registration_number", "text_input")
         st.session_state.register_certificate = st.file_uploader("사업자등기부등본", type="pdf")
         if test_mode:
-            st.session_state.company_location = st.text_input("기업 위치")
-            st.session_state.annual_revenue = st.text_input("연매출(예: 100억원)")
-            st.session_state.number_of_employees = st.text_input("재직인원(예: 50명)")
+            # st.session_state.company_location = st.text_input("기업 위치")
+            # st.session_state.annual_revenue = st.text_input("연매출(예: 100억원)")
+            # st.session_state.number_of_employees = st.text_input("재직인원(예: 50명)")
             st.session_state.business_type = st.text_input("사업 형태")
             st.session_state.business_introduction = st.text_area("사업 소개")
         else:
@@ -322,29 +322,23 @@ def show_page(page):
         #     4.전문외국인력의 기술과 담당할 업무의 연관성\n{st.session_state.initial_response_4}\n\n
         #     """
         st.session_state.total_response = """
-            **1. 기업 소개**\n
-            {introduction}
-            
-            **2. 외국인력 도입 업무와 관련한 전문 인력 부족 현황**\n
-            {expertise_shortage}
-            
-            **3. 국내 인력 채용 노력 및 인력을 충원하지 못한 사유**\n
-            {recruitment_efforts}
-            
-            **4. 전문 외국인력의 기술과 담당할 업무의 연관성**\n
-            {expertise_relevance}
+            **#1. 기업 소개**  
+            {introduction}    
+            **#2. 외국인력 도입 업무와 관련한 전문 인력 부족 현황**  
+            {expertise_shortage}    
+            **#3. 국내 인력 채용 노력 및 인력을 충원하지 못한 사유**  
+            {recruitment_efforts}       
+            **#4. 전문 외국인력의 기술과 담당할 업무의 연관성**  
+            {expertise_relevance}    
             """.format(
                 introduction=st.session_state.initial_response_1,
                 expertise_shortage=st.session_state.initial_response_2,
                 recruitment_efforts=st.session_state.initial_response_3,
                 expertise_relevance=st.session_state.initial_response_4,
             )
-        st.write(st.session_state.total_response)
-        st.text_area("최종본 수정 사항", key="corrections_last")
-        handle_modification_request("total_response", "order_text", "corrections_last", "unique_key_5")
-
-        
-
+        st.markdown(st.session_state.total_response)
+        # st.text_area("최종본 수정 사항", key="corrections_last")
+        # handle_modification_request("total_response", "order_text", "corrections_last", "unique_key_5")
 
 
     elif page == 5:
@@ -368,7 +362,7 @@ def previous_page():
         st.session_state.current_page -= 1
 
 # 현재 페이지 표시
-llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.5)
+llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.6)
 
 st.title(page_titles[st.session_state.current_page])
 show_page(st.session_state.current_page)
