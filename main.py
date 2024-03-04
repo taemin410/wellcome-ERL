@@ -15,12 +15,11 @@ from datetime import datetime, timedelta
 
 from langchain_community.callbacks import get_openai_callback
 
+llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.6)
 
-# 현재 날짜 기준으로 50년 전과 50년 후의 날짜 계산
 years_ago = datetime.now() - timedelta(days=365*30)
 years_later = datetime.now() + timedelta(days=365*30)
 
-# 세션 상태 초기화 및 페이지 설정
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 0
     st.session_state.required_msg = False
@@ -361,26 +360,32 @@ def previous_page():
     if st.session_state.current_page > 0:
         st.session_state.current_page -= 1
 
+
+def main():
 # 현재 페이지 표시
-llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.6)
+    total_pages = len(page_titles) - 1  # 마지막 페이지 인덱스
+    progress_value = st.session_state.current_page / total_pages
+    st.progress(progress_value)
 
-st.title(page_titles[st.session_state.current_page])
-show_page(st.session_state.current_page)
+    st.title(page_titles[st.session_state.current_page])
+    show_page(st.session_state.current_page)
 
-if st.session_state.required_msg:
-    st.error("모든 필수 항목을 입력해주세요.")
+    if st.session_state.required_msg:
+        st.error("모든 필수 항목을 입력해주세요.")
 
-if 'check_fields' in st.session_state and st.session_state.check_fields:
-    if not check_required_fields(st.session_state.current_page):
-        st.error("모든 필수 항목을 입력해주세요.", anchor="top")
-    # 검사 후에는 다시 False로 설정하여 메시지가 반복해서 표시되지 않도록 함
-    st.session_state.check_fields = False
+    if 'check_fields' in st.session_state and st.session_state.check_fields:
+        if not check_required_fields(st.session_state.current_page):
+            st.error("모든 필수 항목을 입력해주세요.", anchor="top")
+        # 검사 후에는 다시 False로 설정하여 메시지가 반복해서 표시되지 않도록 함
+        st.session_state.check_fields = False
 
-col1, col2, col3 = st.columns([0.1, 0.8, 0.1])
-with col1:
-    if st.session_state.current_page > 0:
-        st.button("이전", on_click=previous_page)
-with col3:
-    if st.session_state.current_page < len(page_titles) - 1 and st.session_state.current_page != 0:
-        st.button("다음", on_click=next_page)
+    col1, col2, col3 = st.columns([0.1, 0.8, 0.1])
+    with col1:
+        if st.session_state.current_page > 0:
+            st.button("이전", on_click=previous_page)
+    with col3:
+        if st.session_state.current_page < len(page_titles) - 1 and st.session_state.current_page != 0:
+            st.button("다음", on_click=next_page)
 
+if __name__ == "__main__":
+    main()
