@@ -15,6 +15,9 @@ from datetime import datetime, timedelta
 
 from langchain_community.callbacks import get_openai_callback
 
+# db session
+from db import sqldb
+
 llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.6)
 
 years_ago = datetime.now() - timedelta(days=365*30)
