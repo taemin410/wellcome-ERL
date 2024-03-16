@@ -18,6 +18,19 @@ from langchain_community.callbacks import get_openai_callback
 # db session
 from db import sqldb
 
+if os.getenv("DB_URL"):
+    DB_URL = os.environ["DB_URL"]
+else:
+    print("DB_URL ENV Variable not found")
+
+################db 셋업##################
+configs = {
+    "DB_URL": DB_URL,
+    "DB_POOL_RECYCLE": 900,
+    "DB_ECHO": False,
+}
+sqldb.init_app(**configs)
+
 llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.6)
 
 years_ago = datetime.now() - timedelta(days=365*30)
