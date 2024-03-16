@@ -21,6 +21,10 @@ from query import (
     delete_experience,
 )
 import os
+from dotenv import load_dotenv
+
+load_dotenv()  # Loads environment variables from .env file
+
 
 if os.getenv("DB_URL"):
     DB_URL = os.environ["DB_URL"]
@@ -37,6 +41,10 @@ sqldb.init_app(**configs)
 
 app = FastAPI()
 
+
+@app.get("")
+def health_check():
+    return "Hello world"
 
 # User Endpoints
 @app.get("/users/{user_id}", response_model=UserResponse)
@@ -84,7 +92,7 @@ def read_education(education_id: int, db: Session = Depends(sqldb.get_db)):
 def read_educations(db: Session = Depends(sqldb.get_db)):
     return get_educations(db)
 
-@app.post("/educations", response_model=Education)
+@app.post("/educations", response_model=EducationResponse)
 def create_new_education(education_data: dict, db: Session = Depends(sqldb.get_db)):
     education = create_education(db, education_data)
     return education
