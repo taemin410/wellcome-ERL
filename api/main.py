@@ -42,7 +42,7 @@ sqldb.init_app(**configs)
 app = FastAPI()
 
 
-@app.get("")
+@app.get("/")
 def health_check():
     return "Hello world"
 
