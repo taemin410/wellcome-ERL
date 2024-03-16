@@ -35,7 +35,7 @@ class User(Base):
     self_introduction = Column(String(length=500))
 
     experiences = relationship("Experience", back_populates="user")
-    careers = relationship("Career", back_populates="user")
+    educations = relationship("Education", back_populates="user")
 
 
 class Education(Base):
@@ -58,6 +58,10 @@ class Education(Base):
     # 시작일 = Column(String(length=50))  # Format: YYYY (year-only)
     # 종료일 = Column(String(length=50))  # Format: YYYY-MM (year/month)
 
+    # Define the foreign key relationship with User table
+    user_id = Column(Integer, ForeignKey("user.id"))
+    user = relationship("User", back_populates="educations")
+
 
 class Experience(Base):
     __tablename__ = "experience"
@@ -74,3 +78,7 @@ class Experience(Base):
     company_name = Column(String(length=255))
     job_title = Column(String(length=100))
     duration = Column(String(length=50))
+
+    # Define the foreign key relationship with User table
+    user_id = Column(Integer, ForeignKey("user.id"))
+    user = relationship("User", back_populates="experiences")
