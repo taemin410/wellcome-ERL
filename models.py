@@ -23,16 +23,16 @@ class User(Base):
         Integer, primary_key=True, index=True, nullable=False
     )
     ########################################################################################
-    foreign_name = Column(String)
+    foreign_name = Column(String(length=255))
     age = Column(Integer)
-    gender = Column(String)
-    nationality = Column(String)
-    passport_number = Column(String, unique=True)
+    gender = Column(String(length=50))
+    nationality = Column(String(length=100))
+    passport_number = Column(String(length=50), unique=True)
     issuance_date = Column(Date)
     expiration_date = Column(Date)
-    registration_number = Column(String)
-    validity_period = Column(String)
-    self_introduction = Column(String)
+    registration_number = Column(String(length=50))
+    validity_period = Column(String(length=100))
+    self_introduction = Column(String(length=500))
 
     experiences = relationship("Experience", back_populates="user")
     careers = relationship("Career", back_populates="user")
@@ -50,13 +50,14 @@ class Education(Base):
         Integer, primary_key=True, index=True, autoincrement=True
     )
     ########################################################################################
-    school_name = Column(String)
-    degree = Column(String)
-    duration = Column(String)  # Format: YYYY (year-only) or YYYY-MM (year/month)
-    major = Column(String)
-    status = Column(String)
-    # 시작일 = Column(String)  # Format: YYYY (year-only)
-    # 종료일 = Column(String)  # Format: YYYY-MM (year/month)
+    school_name = Column(String(length=255))
+    degree = Column(String(length=100))
+    duration = Column(String(length=50))  # Format: YYYY (year-only) or YYYY-MM (year/month)
+    major = Column(String(length=255))
+    status = Column(String(length=50))
+    # 시작일 = Column(String(length=50))  # Format: YYYY (year-only)
+    # 종료일 = Column(String(length=50))  # Format: YYYY-MM (year/month)
+
 
 class Experience(Base):
     __tablename__ = "experience"
@@ -70,6 +71,6 @@ class Experience(Base):
         Integer, primary_key=True, index=True, autoincrement=True
     )
     ########################################################################################
-    company_name = Column(String)
-    job_title = Column(String)
-    duration = Column(String)
+    company_name = Column(String(length=255))
+    job_title = Column(String(length=100))
+    duration = Column(String(length=50))
