@@ -42,6 +42,16 @@ class SQLAlchemy:
         logging.info("DB disconnected")
 
     @contextmanager
+    def get_db_context(self):
+        if self._session is None:
+            raise Exception("must be called 'init_app'")
+        db_session = None
+        try:
+            db_session = self._session()
+            yield db_session
+        finally:
+            db_session.close()
+
     def get_db(self):
         if self._session is None:
             raise Exception("must be called 'init_app'")
